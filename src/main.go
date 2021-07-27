@@ -3,40 +3,62 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"html/template"
 	"os"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/spotify"
 )
 
-var myTemplate *template.Template
+var stateString = "random-string"
 
-// data for auth URL
-type ViewData struct {
-	ClientID string
-}
+ 
+var (
+	config = oauth2.Config{
+		ClientID: os.Getenv("CLIENTID"),
+		ClientSecret: os.Getenv("CLIENTSECRET"),
+		Scopes: []string{"playlist-modify-public", "playlist-modify-private", "playlist-read-private", "playlist-read-collaborative"},
+		RedirectURL: "http://localhost:3000/callback",
+		Endpoint: spotify.Endpoint,
+	}
+)
 
 func main() {
-	// get environment vars
-	var err error
-	var clientID = os.Getenv("CLIENTID")
-	var clientSecret = os.Getenv("CLIENTSECRET")
-
-	myTemplate, err = template.ParseFiles("views/index.html")
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("clientID: " + clientID)
-	fmt.Println("clientSecret: " + clientSecret)
-
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/callback", callbackHandler)
 	http.ListenAndServe(":3000", nil)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
-	vd := ViewData{ClientID: os.Getenv("CLIENTID")}
-	err := myTemplate.Execute(w, vd)
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	var htmlIndex = `<html>
+	<body>
+		<a href="/login">Click here to login!</a>
+	</body>
+	</html>`
+	fmt.Fprintf(w, htmlIndex)
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	url := config.AuthCodeURL(stateString)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+func callbackHandler(w http.ResponseWriter, r *http.Request) {
+	token, err := printAuthToken(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fmt.Println(err.Error())
+		http.Redirect(w, r, "/error", http.StatusTemporaryRedirect)
+		return
 	}
+	fmt.Println(token)
+}
+
+func printAuthToken(state string, code string) (*oauth2.Token, error) {
+	if state != stateString {
+		return nil, fmt.Errorf("invalid state")
+	}
+	token, err := config.Exchange(oauth2.NoContext, code)
+	if err != nil {
+		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
+	}
+	return token, nil
 }
