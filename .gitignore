@@ -12,4 +12,10 @@
 *.out
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+vendor/
+
+# Don't need to include the executable
+main
+
+# No need for this either
+.DS_Store

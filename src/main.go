@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/spotify"
 )
 
 var stateString = "random-string"
 
- 
 var (
 	config = oauth2.Config{
-		ClientID: os.Getenv("CLIENTID"),
+		ClientID:     os.Getenv("CLIENTID"),
 		ClientSecret: os.Getenv("CLIENTSECRET"),
-		Scopes: []string{"playlist-modify-public", "playlist-modify-private", "playlist-read-private", "playlist-read-collaborative"},
-		RedirectURL: "http://localhost:3000/callback",
-		Endpoint: spotify.Endpoint,
+		Scopes:       []string{"playlist-modify-public", "playlist-modify-private", "playlist-read-private", "playlist-read-collaborative"},
+		RedirectURL:  "http://localhost:3000/callback",
+		Endpoint:     spotify.Endpoint,
 	}
 )
 
