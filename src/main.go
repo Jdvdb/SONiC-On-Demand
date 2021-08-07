@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 
@@ -10,6 +12,7 @@ import (
 )
 
 var stateString = "random-string"
+var sonicNowPlaying = "https://player.rogersradio.ca/chdi/widget/now_playing"
 
 var (
 	config = oauth2.Config{
@@ -20,6 +23,13 @@ var (
 		Endpoint:     spotify.Endpoint,
 	}
 )
+
+type SonicInfo struct {
+	Song_title string `json:"song_title"`
+	Started_at string `json:"started_at"`
+	Length     string `json:"length"`
+	Spotify    string `json:"spotify"`
+}
 
 func main() {
 	http.HandleFunc("/", homeHandler)
@@ -50,6 +60,8 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println(token)
+	nowPlaying := getNowPlaying()
+	fmt.Println(nowPlaying)
 }
 
 func printAuthToken(state string, code string) (*oauth2.Token, error) {
@@ -61,4 +73,21 @@ func printAuthToken(state string, code string) (*oauth2.Token, error) {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
 	return token, nil
+}
+
+func getNowPlaying() SonicInfo {
+	resp, err := http.Get(sonicNowPlaying)
+	if err != nil {
+		fmt.Println("Error getting now playing", err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading body")
+	}
+
+	data := SonicInfo{}
+	json.Unmarshal(body, &data)
+
+	return data
 }
