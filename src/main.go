@@ -14,6 +14,8 @@ import (
 var stateString = "random-string"
 var sonicNowPlaying = "https://player.rogersradio.ca/chdi/widget/now_playing"
 
+var getPlaylistsURL = "https://api.spotify.com/v1/me/playlists?limit=50"
+
 var (
 	config = oauth2.Config{
 		ClientID:     os.Getenv("CLIENTID"),
@@ -29,6 +31,16 @@ type SonicInfo struct {
 	Started_at string `json:"started_at"`
 	Length     string `json:"length"`
 	Spotify    string `json:"spotify"`
+}
+
+type AllPlaylists struct {
+	Items  []PlaylistInfo `json:"items"`
+	Limit  int            `json:"limit"`
+	Offset int            `json:"offset"`
+}
+
+type PlaylistInfo struct {
+	Name string `json:"name"`
 }
 
 func main() {
@@ -59,9 +71,10 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/error", http.StatusTemporaryRedirect)
 		return
 	}
-	fmt.Println(token)
 	nowPlaying := getNowPlaying()
 	fmt.Println(nowPlaying)
+	makePlaylist(token)
+
 }
 
 func printAuthToken(state string, code string) (*oauth2.Token, error) {
@@ -76,12 +89,14 @@ func printAuthToken(state string, code string) (*oauth2.Token, error) {
 }
 
 func getNowPlaying() SonicInfo {
-	resp, err := http.Get(sonicNowPlaying)
+	res, err := http.Get(sonicNowPlaying)
 	if err != nil {
 		fmt.Println("Error getting now playing", err)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println("Error reading body")
 	}
@@ -90,4 +105,31 @@ func getNowPlaying() SonicInfo {
 	json.Unmarshal(body, &data)
 
 	return data
+}
+
+func makePlaylist(token *oauth2.Token) {
+	client := http.Client{}
+	req, err := http.NewRequest("GET", getPlaylistsURL, nil)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	authorization := "Bearer " + token.AccessToken
+	req.Header.Set("Authorization", authorization)
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading body")
+	}
+
+	data := AllPlaylists{}
+	json.Unmarshal(body, &data)
+	fmt.Println(data)
 }
