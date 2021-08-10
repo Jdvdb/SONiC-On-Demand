@@ -12,9 +12,13 @@ import (
 )
 
 var stateString = "random-string"
-var sonicNowPlaying = "https://player.rogersradio.ca/chdi/widget/now_playing"
+
+var currentUser = ""
+
+var sonicNowPlayingURL = "https://player.rogersradio.ca/chdi/widget/now_playing"
 
 var getPlaylistsURL = "https://api.spotify.com/v1/me/playlists?limit=50"
+var getUserIdURL = "https://api.spotify.com/v1/me"
 
 var (
 	config = oauth2.Config{
@@ -41,6 +45,11 @@ type AllPlaylists struct {
 
 type PlaylistInfo struct {
 	Name string `json:"name"`
+	Id   string `json:"id"`
+}
+
+type UserId struct {
+	Id string `json:"id"`
 }
 
 func main() {
@@ -73,7 +82,15 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	nowPlaying := getNowPlaying()
 	fmt.Println(nowPlaying)
-	makePlaylist(token)
+
+	currentUser, err = getUserId(token)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println(currentUser)
+
+	id, err := handlePlaylist(token)
+	fmt.Println(id)
 
 }
 
@@ -89,16 +106,16 @@ func printAuthToken(state string, code string) (*oauth2.Token, error) {
 }
 
 func getNowPlaying() SonicInfo {
-	res, err := http.Get(sonicNowPlaying)
+	res, err := http.Get(sonicNowPlayingURL)
 	if err != nil {
-		fmt.Println("Error getting now playing", err)
+		fmt.Println(err.Error())
 	}
 
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println("Error reading body")
+		fmt.Println(err.Error())
 	}
 
 	data := SonicInfo{}
@@ -107,7 +124,52 @@ func getNowPlaying() SonicInfo {
 	return data
 }
 
-func makePlaylist(token *oauth2.Token) {
+func getUserId(token *oauth2.Token) (string, error) {
+	client := http.Client{}
+	req, err := http.NewRequest("GET", getUserIdURL, nil)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	authorization := "Bearer " + token.AccessToken
+	req.Header.Set("Authorization", authorization)
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+		return "", err
+	}
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading body")
+		return "", err
+	}
+
+	data := UserId{}
+	json.Unmarshal(body, &data)
+	return data.Id, nil
+}
+
+// will either find or create Sonic Playlist and return ID
+func handlePlaylist(token *oauth2.Token) (string, error) {
+	var playlistId, err = checkForPlaylist(token)
+	if err != nil {
+		fmt.Println(err.Error())
+		return "", err
+	} else if playlistId == "" {
+		fmt.Println("Making Playlist!")
+		return "id", nil
+	} else {
+		return playlistId, nil
+	}
+
+}
+
+// will get playlist ID for Sonic On Demand if it exists
+func checkForPlaylist(token *oauth2.Token) (string, error) {
 	client := http.Client{}
 	req, err := http.NewRequest("GET", getPlaylistsURL, nil)
 	if err != nil {
@@ -120,6 +182,7 @@ func makePlaylist(token *oauth2.Token) {
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err.Error())
+		return "", err
 	}
 
 	defer res.Body.Close()
@@ -127,9 +190,15 @@ func makePlaylist(token *oauth2.Token) {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		fmt.Println("Error reading body")
+		return "", err
 	}
 
 	data := AllPlaylists{}
 	json.Unmarshal(body, &data)
-	fmt.Println(data)
+	for _, value := range data.Items {
+		if value.Name == "SONiC On Demand" {
+			return value.Id, nil
+		}
+	}
+	return "", nil
 }
