@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/spotify"
@@ -17,8 +18,9 @@ var currentUser = ""
 
 var sonicNowPlayingURL = "https://player.rogersradio.ca/chdi/widget/now_playing"
 
-var getPlaylistsURL = "https://api.spotify.com/v1/me/playlists?limit=50"
 var getUserIdURL = "https://api.spotify.com/v1/me"
+var getPlaylistsURL = "https://api.spotify.com/v1/me/playlists?limit=50"
+var makePlaylistURL = "https://api.spotify.com/v1/users/{user_id}/playlists"
 
 var (
 	config = oauth2.Config{
@@ -80,14 +82,18 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/error", http.StatusTemporaryRedirect)
 		return
 	}
-	nowPlaying := getNowPlaying()
-	fmt.Println(nowPlaying)
 
 	currentUser, err = getUserId(token)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 	fmt.Println(currentUser)
+
+	fixAllURLs()
+	fmt.Println(makePlaylistURL)
+
+	nowPlaying := getNowPlaying()
+	fmt.Println(nowPlaying)
 
 	id, err := handlePlaylist(token)
 	fmt.Println(id)
@@ -105,23 +111,8 @@ func printAuthToken(state string, code string) (*oauth2.Token, error) {
 	return token, nil
 }
 
-func getNowPlaying() SonicInfo {
-	res, err := http.Get(sonicNowPlayingURL)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	data := SonicInfo{}
-	json.Unmarshal(body, &data)
-
-	return data
+func fixAllURLs() {
+	makePlaylistURL = strings.Replace(makePlaylistURL, "{user_id}", currentUser, 1)
 }
 
 func getUserId(token *oauth2.Token) (string, error) {
@@ -151,6 +142,25 @@ func getUserId(token *oauth2.Token) (string, error) {
 	data := UserId{}
 	json.Unmarshal(body, &data)
 	return data.Id, nil
+}
+
+func getNowPlaying() SonicInfo {
+	res, err := http.Get(sonicNowPlayingURL)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	data := SonicInfo{}
+	json.Unmarshal(body, &data)
+
+	return data
 }
 
 // will either find or create Sonic Playlist and return ID
