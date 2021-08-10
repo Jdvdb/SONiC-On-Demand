@@ -22,6 +22,7 @@ var sonicNowPlayingURL = "https://player.rogersradio.ca/chdi/widget/now_playing"
 var getUserIdURL = "https://api.spotify.com/v1/me"
 var getPlaylistsURL = "https://api.spotify.com/v1/me/playlists?limit=50"
 var makePlaylistURL = "https://api.spotify.com/v1/users/{user_id}/playlists"
+var addSongURL = "https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
 
 var (
 	config = oauth2.Config{
@@ -90,13 +91,20 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println(currentUser)
 
-	fixAllURLs()
+	fixUserURLs()
 
 	nowPlaying := getNowPlaying()
 	fmt.Println(nowPlaying)
 
-	id, err := handlePlaylist(token)
-	fmt.Println(id)
+	playlistId, err := handlePlaylist(token)
+
+	fixPlaylistURLs(playlistId)
+
+	if nowPlaying.Spotify != "" {
+		addSong(token, nowPlaying.Spotify)
+	} else {
+		fmt.Println("Song not on spotify")
+	}
 
 }
 
@@ -111,8 +119,12 @@ func getAuthToken(state string, code string) (*oauth2.Token, error) {
 	return token, nil
 }
 
-func fixAllURLs() {
+func fixUserURLs() {
 	makePlaylistURL = strings.Replace(makePlaylistURL, "{user_id}", currentUser, 1)
+}
+
+func fixPlaylistURLs(playlistId string) {
+	addSongURL = strings.Replace(addSongURL, "{playlist_id}", playlistId, 1)
 }
 
 func getUserId(token *oauth2.Token) (string, error) {
@@ -219,6 +231,7 @@ func makePlaylist(token *oauth2.Token) (string, error) {
 		"name":        "SONiC On Demand",
 		"description": "Playlsit made from SONiC 102.9",
 	})
+
 	req, err := http.NewRequest("POST", makePlaylistURL, bytes.NewBuffer(requestBody))
 	if err != nil {
 		fmt.Println(err.Error())
@@ -245,4 +258,33 @@ func makePlaylist(token *oauth2.Token) (string, error) {
 	json.Unmarshal(body, &data)
 
 	return data.Id, nil
+}
+
+func addSong(token *oauth2.Token, songId string) error {
+	client := http.Client{}
+
+	songURI := "spotify:track:" + songId
+
+	requestBody, err := json.Marshal(map[string][]string{
+		"uris": []string{songURI},
+	})
+
+	req, err := http.NewRequest("POST", addSongURL, bytes.NewBuffer(requestBody))
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	authorization := "Bearer " + token.AccessToken
+	req.Header.Set("Authorization", authorization)
+	req.Header.Set("Accept", "application/json")
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+		return err
+	}
+
+	defer res.Body.Close()
+
+	return nil
 }
