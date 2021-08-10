@@ -77,7 +77,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func callbackHandler(w http.ResponseWriter, r *http.Request) {
-	token, err := printAuthToken(r.FormValue("state"), r.FormValue("code"))
+	token, err := getAuthToken(r.FormValue("state"), r.FormValue("code"))
 	if err != nil {
 		fmt.Println(err.Error())
 		http.Redirect(w, r, "/error", http.StatusTemporaryRedirect)
@@ -100,7 +100,7 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func printAuthToken(state string, code string) (*oauth2.Token, error) {
+func getAuthToken(state string, code string) (*oauth2.Token, error) {
 	if state != stateString {
 		return nil, fmt.Errorf("invalid state")
 	}
@@ -135,7 +135,7 @@ func getUserId(token *oauth2.Token) (string, error) {
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		fmt.Println("Error reading body")
+		fmt.Println(err.Error())
 		return "", err
 	}
 
