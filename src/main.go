@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -90,7 +91,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(currentUser)
 
 	fixAllURLs()
-	fmt.Println(makePlaylistURL)
 
 	nowPlaying := getNowPlaying()
 	fmt.Println(nowPlaying)
@@ -170,11 +170,10 @@ func handlePlaylist(token *oauth2.Token) (string, error) {
 		fmt.Println(err.Error())
 		return "", err
 	} else if playlistId == "" {
-		fmt.Println("Making Playlist!")
-		return "id", nil
-	} else {
-		return playlistId, nil
+		fmt.Println("Making Playlist")
+		playlistId, err = makePlaylist(token)
 	}
+	return playlistId, nil
 
 }
 
@@ -211,4 +210,39 @@ func checkForPlaylist(token *oauth2.Token) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func makePlaylist(token *oauth2.Token) (string, error) {
+	client := http.Client{}
+
+	requestBody, err := json.Marshal(map[string]string{
+		"name":        "SONiC On Demand",
+		"description": "Playlsit made from SONiC 102.9",
+	})
+	req, err := http.NewRequest("POST", makePlaylistURL, bytes.NewBuffer(requestBody))
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	authorization := "Bearer " + token.AccessToken
+	req.Header.Set("Authorization", authorization)
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err.Error())
+		return "", err
+	}
+
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println("Error reading body")
+		return "", err
+	}
+
+	data := PlaylistInfo{}
+	json.Unmarshal(body, &data)
+
+	return data.Id, nil
 }
