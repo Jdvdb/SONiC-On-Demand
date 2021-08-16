@@ -19,3 +19,6 @@ main
 
 # No need for this either
 .DS_Store
+
+# Ensure .env file isn't ever uploaded
+.env
