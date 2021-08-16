@@ -120,11 +120,13 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	// get a list of all songs in the playlist
 	getAllSongs(token)
 
-	// if nowPlaying.Spotify != "" {
-	// 	addSong(token, nowPlaying.Spotify)
-	// } else {
-	// 	fmt.Println("Song not on spotify")
-	// }
+	if nowPlaying.Spotify == "" {
+		fmt.Println("Song not on spotify")
+	} else if checkForSong(nowPlaying.Spotify) {
+		fmt.Println("Song already in playlist")
+	} else {
+		addSong(token, nowPlaying.Spotify)
+	}
 
 }
 
@@ -321,6 +323,15 @@ func getAllSongs(token *oauth2.Token) error {
 	}
 
 	return nil
+}
+
+func checkForSong(songId string) bool {
+	for i := 0; i < len(currentSongs); i++ {
+		if currentSongs[i] == songId {
+			return true
+		}
+	}
+	return false
 }
 
 func addSong(token *oauth2.Token, songId string) error {
