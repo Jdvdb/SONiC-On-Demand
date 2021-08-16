@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/spotify"
@@ -27,6 +28,8 @@ var getPlaylistsURL = "https://api.spotify.com/v1/me/playlists?limit=50"
 var makePlaylistURL = "https://api.spotify.com/v1/users/{user_id}/playlists"
 var addSongURL = "https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
 var getSongsUrl = "https://api.spotify.com/v1/playlists/{playlist_id}/tracks?market=CA&fields=items(track.name,track.id),total&limit=100"
+
+var authFinished = false
 
 var (
 	config = oauth2.Config{
@@ -70,16 +73,19 @@ type Track struct {
 }
 
 func main() {
-	http.HandleFunc("/", homeHandler)
-	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/", loginHandler)
 	http.HandleFunc("/callback", callbackHandler)
+	http.HandleFunc("/run", runHandler)
 	http.ListenAndServe(":3000", nil)
+	for !authFinished {
+
+	}
 }
 
-func homeHandler(w http.ResponseWriter, r *http.Request) {
+func runHandler(w http.ResponseWriter, r *http.Request) {
 	var htmlIndex = `<html>
 	<body>
-		<a href="/login">Click here to login!</a>
+		<p>Running...</p>
 	</body>
 	</html>`
 	fmt.Fprintf(w, htmlIndex)
@@ -108,9 +114,6 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	// fix the URLs requiring a user ID
 	fixUserURLs()
 
-	nowPlaying := getNowPlaying()
-	fmt.Println(nowPlaying)
-
 	// get exisitng playlist or create new one if needed with the ID
 	playlistId, err := handlePlaylist(token)
 
@@ -120,14 +123,10 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	// get a list of all songs in the playlist
 	getAllSongs(token)
 
-	if nowPlaying.Spotify == "" {
-		fmt.Println("Song not on spotify")
-	} else if checkForSong(nowPlaying.Spotify) {
-		fmt.Println("Song already in playlist")
-	} else {
-		addSong(token, nowPlaying.Spotify)
-	}
+	http.Redirect(w, r, "/run", http.StatusTemporaryRedirect)
 
+	// loop for songs
+	go MainTask(token)
 }
 
 func getAuthToken(state string, code string) (*oauth2.Token, error) {
@@ -360,5 +359,25 @@ func addSong(token *oauth2.Token, songId string) error {
 
 	defer res.Body.Close()
 
+	// also ensure song is added to app
+	currentSongs = append(currentSongs, songId)
+
 	return nil
+}
+
+func MainTask(token *oauth2.Token) {
+	ticker := time.NewTicker(150 * time.Second)
+	for _ = range ticker.C {
+
+		nowPlaying := getNowPlaying()
+		fmt.Println(nowPlaying)
+
+		if nowPlaying.Spotify == "" {
+			fmt.Println("Song not on spotify")
+		} else if checkForSong(nowPlaying.Spotify) {
+			fmt.Println("Song already in playlist")
+		} else {
+			addSong(token, nowPlaying.Spotify)
+		}
+	}
 }
