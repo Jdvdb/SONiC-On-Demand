@@ -2,8 +2,6 @@ FROM golang:1.17-rc-buster AS builder
 
 COPY . /go
 
-ENV GOOS=linux
-ENV GOARCH=amd64
 ENV CGO_ENABLED=0
 
 RUN cd src; go mod download;
