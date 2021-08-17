@@ -47,7 +47,7 @@ jobs:
       # Setup QEMU
       - name: Setup QEMU
         id: qemu
-        uses: docker/setup-qemu-actions@v1
+        uses: docker/setup-qemu-action@v1
 
       # Setup Docker BuildX
       - name: Setup Docker BuildX
