@@ -40,9 +40,8 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v1
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GH_PAT }}
+          username: ${{ secrets.DOCKER_USERNMAE }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       # Setup QEMU
       - name: Setup QEMU
