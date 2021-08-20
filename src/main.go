@@ -332,7 +332,7 @@ func addSong(client *http.Client, songId string) error {
 }
 
 func MainTask(client *http.Client) {
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(150 * time.Second)
 
 	for _ = range ticker.C {
 
