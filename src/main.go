@@ -131,7 +131,7 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/run", http.StatusTemporaryRedirect)
 
 	// loop for songs
-	go MainTask(token)
+	go MainTask(client)
 }
 
 func getAuthToken(state string, code string) (*oauth2.Token, error) {
@@ -153,35 +153,6 @@ func fixPlaylistURLs(playlistId string) {
 	addSongURL = strings.Replace(addSongURL, "{playlist_id}", playlistId, 1)
 	getSongsUrl = strings.Replace(getSongsUrl, "{playlist_id}", playlistId, 1)
 }
-
-// func getUserId(token *oauth2.Token) (string, error) {
-// 	client := http.Client{}
-// 	req, err := http.NewRequest("GET", getUserIdURL, nil)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 	}
-
-// 	authorization := "Bearer " + token.AccessToken
-// 	req.Header.Set("Authorization", authorization)
-
-// 	res, err := client.Do(req)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 		return "", err
-// 	}
-
-// 	defer res.Body.Close()
-
-// 	body, err := ioutil.ReadAll(res.Body)
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 		return "", err
-// 	}
-
-// 	data := UserId{}
-// 	json.Unmarshal(body, &data)
-// 	return data.Id, nil
-// }
 
 func getUserId(client *http.Client) (string, error) {
 	res, err := client.Get(getUserIdURL)
@@ -358,9 +329,7 @@ func checkForSong(songId string) bool {
 	return false
 }
 
-func addSong(token *oauth2.Token, songId string) error {
-	client := http.Client{}
-
+func addSong(client *http.Client, songId string) error {
 	songURI := "spotify:track:" + songId
 
 	requestBody, err := json.Marshal(map[string][]string{
@@ -371,10 +340,6 @@ func addSong(token *oauth2.Token, songId string) error {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
-	authorization := "Bearer " + token.AccessToken
-	req.Header.Set("Authorization", authorization)
-	req.Header.Set("Accept", "application/json")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -390,17 +355,17 @@ func addSong(token *oauth2.Token, songId string) error {
 	return nil
 }
 
-func MainTask(token *oauth2.Token) {
+func MainTask(client *http.Client) {
 	// refresh token timer
-	tokenNext := time.Now().Add(50 * time.Minute)
+	// tokenNext := time.Now().Add(50 * time.Minute)
 	ticker := time.NewTicker(15 * time.Second)
 
 	for _ = range ticker.C {
 
-		if tokenNext.Before(time.Now()) {
-			fmt.Println("token expiring soon")
-			tokenNext = time.Now().Add(50 * time.Minute)
-		}
+		// if tokenNext.Before(time.Now()) {
+		// 	fmt.Println("token expiring soon")
+		// 	tokenNext = time.Now().Add(50 * time.Minute)
+		// }
 
 		nowPlaying := getNowPlaying()
 		fmt.Println(nowPlaying)
@@ -410,7 +375,7 @@ func MainTask(token *oauth2.Token) {
 		} else if checkForSong(nowPlaying.Spotify) {
 			fmt.Println("Song already in playlist")
 		} else {
-			addSong(token, nowPlaying.Spotify)
+			addSong(client, nowPlaying.Spotify)
 		}
 	}
 }
