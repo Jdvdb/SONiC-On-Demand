@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -40,6 +41,8 @@ var (
 		Endpoint:     spotify.Endpoint,
 	}
 )
+
+var ctx = context.Background()
 
 type SonicInfo struct {
 	Song_title string `json:"song_title"`
@@ -105,8 +108,10 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	client := config.Client(ctx, token)
+
 	// get the user's id
-	currentUser, err = getUserId(token)
+	currentUser, err = getUserId(client)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -133,7 +138,7 @@ func getAuthToken(state string, code string) (*oauth2.Token, error) {
 	if state != stateString {
 		return nil, fmt.Errorf("invalid state")
 	}
-	token, err := config.Exchange(oauth2.NoContext, code)
+	token, err := config.Exchange(ctx, code)
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
@@ -149,17 +154,37 @@ func fixPlaylistURLs(playlistId string) {
 	getSongsUrl = strings.Replace(getSongsUrl, "{playlist_id}", playlistId, 1)
 }
 
-func getUserId(token *oauth2.Token) (string, error) {
-	client := http.Client{}
-	req, err := http.NewRequest("GET", getUserIdURL, nil)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
+// func getUserId(token *oauth2.Token) (string, error) {
+// 	client := http.Client{}
+// 	req, err := http.NewRequest("GET", getUserIdURL, nil)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 	}
 
-	authorization := "Bearer " + token.AccessToken
-	req.Header.Set("Authorization", authorization)
+// 	authorization := "Bearer " + token.AccessToken
+// 	req.Header.Set("Authorization", authorization)
 
-	res, err := client.Do(req)
+// 	res, err := client.Do(req)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return "", err
+// 	}
+
+// 	defer res.Body.Close()
+
+// 	body, err := ioutil.ReadAll(res.Body)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 		return "", err
+// 	}
+
+// 	data := UserId{}
+// 	json.Unmarshal(body, &data)
+// 	return data.Id, nil
+// }
+
+func getUserId(client *http.Client) (string, error) {
+	res, err := client.Get(getUserIdURL)
 	if err != nil {
 		fmt.Println(err.Error())
 		return "", err
@@ -368,7 +393,7 @@ func addSong(token *oauth2.Token, songId string) error {
 func MainTask(token *oauth2.Token) {
 	// refresh token timer
 	tokenNext := time.Now().Add(50 * time.Minute)
-	ticker := time.NewTicker(150 * time.Second)
+	ticker := time.NewTicker(15 * time.Second)
 
 	for _ = range ticker.C {
 
