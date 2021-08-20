@@ -1,0 +1,2 @@
+CLIENTID=YourClientID
+CLIENTSECRET=YourClientSecret
