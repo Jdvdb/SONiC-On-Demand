@@ -120,13 +120,13 @@ func callbackHandler(w http.ResponseWriter, r *http.Request) {
 	fixUserURLs()
 
 	// get exisitng playlist or create new one if needed with the ID
-	playlistId, err := handlePlaylist(token)
+	playlistId, err := handlePlaylist(client)
 
 	// fix all URLs needing the playlist ID
 	fixPlaylistURLs(playlistId)
 
 	// get a list of all songs in the playlist
-	getAllSongs(token)
+	getAllSongs(client)
 
 	http.Redirect(w, r, "/run", http.StatusTemporaryRedirect)
 
@@ -194,31 +194,22 @@ func getNowPlaying() SonicInfo {
 }
 
 // will either find or create Sonic Playlist and return ID
-func handlePlaylist(token *oauth2.Token) (string, error) {
-	var playlistId, err = checkForPlaylist(token)
+func handlePlaylist(client *http.Client) (string, error) {
+	var playlistId, err = checkForPlaylist(client)
 	if err != nil {
 		fmt.Println(err.Error())
 		return "", err
 	} else if playlistId == "" {
 		fmt.Println("Making Playlist")
-		playlistId, err = makePlaylist(token)
+		playlistId, err = makePlaylist(client)
 	}
 	return playlistId, nil
 
 }
 
 // will get playlist ID for Sonic On Demand if it exists
-func checkForPlaylist(token *oauth2.Token) (string, error) {
-	client := http.Client{}
-	req, err := http.NewRequest("GET", getPlaylistsURL, nil)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	authorization := "Bearer " + token.AccessToken
-	req.Header.Set("Authorization", authorization)
-
-	res, err := client.Do(req)
+func checkForPlaylist(client *http.Client) (string, error) {
+	res, err := client.Get(getPlaylistsURL)
 	if err != nil {
 		fmt.Println(err.Error())
 		return "", err
@@ -242,9 +233,7 @@ func checkForPlaylist(token *oauth2.Token) (string, error) {
 	return "", nil
 }
 
-func makePlaylist(token *oauth2.Token) (string, error) {
-	client := http.Client{}
-
+func makePlaylist(client *http.Client) (string, error) {
 	requestBody, err := json.Marshal(map[string]string{
 		"name":        "SONiC On Demand",
 		"description": "Playlsit made from SONiC 102.9",
@@ -254,9 +243,6 @@ func makePlaylist(token *oauth2.Token) (string, error) {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
-	authorization := "Bearer " + token.AccessToken
-	req.Header.Set("Authorization", authorization)
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -278,24 +264,14 @@ func makePlaylist(token *oauth2.Token) (string, error) {
 	return data.Id, nil
 }
 
-func getAllSongs(token *oauth2.Token) error {
-	client := http.Client{}
+func getAllSongs(client *http.Client) error {
 	totalSongs := 100
 
 	for currentOffest := 0; currentOffest < totalSongs; currentOffest += 100 {
 
 		currentURL := getSongsUrl + "&offset=" + strconv.Itoa(currentOffest)
 
-		req, err := http.NewRequest("GET", currentURL, nil)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-
-		authorization := "Bearer " + token.AccessToken
-		req.Header.Set("Authorization", authorization)
-		req.Header.Set("Accept", "application/json")
-
-		res, err := client.Do(req)
+		res, err := client.Get(currentURL)
 		if err != nil {
 			fmt.Println(err.Error())
 			return err
@@ -356,16 +332,9 @@ func addSong(client *http.Client, songId string) error {
 }
 
 func MainTask(client *http.Client) {
-	// refresh token timer
-	// tokenNext := time.Now().Add(50 * time.Minute)
 	ticker := time.NewTicker(15 * time.Second)
 
 	for _ = range ticker.C {
-
-		// if tokenNext.Before(time.Now()) {
-		// 	fmt.Println("token expiring soon")
-		// 	tokenNext = time.Now().Add(50 * time.Minute)
-		// }
 
 		nowPlaying := getNowPlaying()
 		fmt.Println(nowPlaying)
