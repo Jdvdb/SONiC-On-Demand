@@ -366,8 +366,16 @@ func addSong(token *oauth2.Token, songId string) error {
 }
 
 func MainTask(token *oauth2.Token) {
+	// refresh token timer
+	tokenNext := time.Now().Add(50 * time.Minute)
 	ticker := time.NewTicker(150 * time.Second)
+
 	for _ = range ticker.C {
+
+		if tokenNext.Before(time.Now()) {
+			fmt.Println("token expiring soon")
+			tokenNext = time.Now().Add(50 * time.Minute)
+		}
 
 		nowPlaying := getNowPlaying()
 		fmt.Println(nowPlaying)
